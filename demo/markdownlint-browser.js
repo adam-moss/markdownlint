@@ -47,7 +47,8 @@ module.exports.inlineCommentStartRe = inlineCommentStartRe;
 const htmlElementRe = /<(([A-Za-z][A-Za-z0-9-]*)(?:\s[^`>]*)?)\/?>/g;
 module.exports.htmlElementRe = htmlElementRe;
 // Regular expressions for range matching
-module.exports.bareUrlRe = /(?:http|ftp)s?:\/\/[^\s\]"']*(?:\/|[^\s\]"'\W])/ig;
+module.exports.bareUrlRe =
+    /(?:http|ftp)s?:\/\/[^\s\]"'<>]*(?:\/|[^\s\]"'\W])/ig;
 module.exports.listItemMarkerRe = /^([\s>]*)(?:[*+-]|\d+[.)])\s+/;
 module.exports.orderedListItemMarkerRe = /^[\s>]*0*(\d+)[.)]/;
 // Regular expression for all instances of emphasis markers
@@ -3704,60 +3705,59 @@ module.exports = {
 "use strict";
 // @ts-check
 
-const { addErrorContext, bareUrlRe, filterTokens } = __webpack_require__(/*! ../helpers */ "../helpers/helpers.js");
-const htmlLinkOpenRe = /^<a[\s>]/i;
-const htmlLinkCloseRe = /^<\/a[\s>]/i;
+const { addErrorContext, bareUrlRe, withinAnyRange } = __webpack_require__(/*! ../helpers */ "../helpers/helpers.js");
+const { codeBlockAndSpanRanges, referenceLinkImageData } = __webpack_require__(/*! ./cache */ "../lib/cache.js");
+const htmlLinkRe = /<a(?:|\s[^>]+)>[^<>]*<\/a\s*>/ig;
 module.exports = {
     "names": ["MD034", "no-bare-urls"],
     "description": "Bare URL used",
     "tags": ["links", "url"],
     "function": function MD034(params, onError) {
-        filterTokens(params, "inline", (token) => {
-            let inLink = false;
-            let inInline = false;
-            for (const child of token.children) {
-                const { content, line, lineNumber, type } = child;
+        const { lines } = params;
+        const { definitionLineIndices } = referenceLinkImageData();
+        const codeExclusions = codeBlockAndSpanRanges();
+        for (const [lineIndex, line] of lines.entries()) {
+            if (definitionLineIndices[0] === lineIndex) {
+                definitionLineIndices.shift();
+            }
+            else {
                 let match = null;
-                if (type === "link_open") {
-                    inLink = true;
+                const lineExclusions = [];
+                while ((match = htmlLinkRe.exec(line)) !== null) {
+                    lineExclusions.push([lineIndex, match.index, match[0].length]);
                 }
-                else if (type === "link_close") {
-                    inLink = false;
-                }
-                else if ((type === "html_inline") && htmlLinkOpenRe.test(content)) {
-                    inInline = true;
-                }
-                else if ((type === "html_inline") && htmlLinkCloseRe.test(content)) {
-                    inInline = false;
-                }
-                else if ((type === "text") && !inLink && !inInline) {
-                    while ((match = bareUrlRe.exec(content)) !== null) {
-                        const [bareUrl] = match;
-                        const matchIndex = match.index;
-                        const bareUrlLength = bareUrl.length;
-                        // Allow "[LINK]" to avoid conflicts with MD011/no-reversed-links
-                        // Allow quoting as a way of deliberately including a bare URL
-                        const leftChar = content[matchIndex - 1];
-                        const rightChar = content[matchIndex + bareUrlLength];
-                        if (!((leftChar === "[") && (rightChar === "]")) &&
-                            !((leftChar === "\"") && (rightChar === "\"")) &&
-                            !((leftChar === "'") && (rightChar === "'"))) {
-                            const index = line.indexOf(content);
-                            const range = (index === -1) ? null : [
-                                index + matchIndex + 1,
-                                bareUrlLength
-                            ];
-                            const fixInfo = range ? {
-                                "editColumn": range[0],
-                                "deleteCount": range[1],
-                                "insertText": `<${bareUrl}>`
-                            } : null;
-                            addErrorContext(onError, lineNumber, bareUrl, null, null, range, fixInfo);
-                        }
+                while ((match = bareUrlRe.exec(line)) !== null) {
+                    const [bareUrl] = match;
+                    const matchIndex = match.index;
+                    const bareUrlLength = bareUrl.length;
+                    const leftLeftChar = line[matchIndex - 2];
+                    const leftChar = line[matchIndex - 1];
+                    const rightChar = line[matchIndex + bareUrlLength];
+                    // Allow ](... to avoid reporting Markdown links
+                    // Allow <...> to avoid reporting explicit links
+                    // Allow [...] to avoid conflicts with MD011/no-reversed-links
+                    // Allow "..." and '...' as a way of deliberately including a bare URL
+                    if (!((leftLeftChar === "]") && (leftChar === "(")) &&
+                        !((leftChar === "<") && (rightChar === ">")) &&
+                        !((leftChar === "[") && (rightChar === "]")) &&
+                        !((leftChar === "\"") && (rightChar === "\"")) &&
+                        !((leftChar === "'") && (rightChar === "'")) &&
+                        !withinAnyRange(lineExclusions, lineIndex, matchIndex, bareUrlLength) &&
+                        !withinAnyRange(codeExclusions, lineIndex, matchIndex, bareUrlLength)) {
+                        const range = [
+                            matchIndex + 1,
+                            bareUrlLength
+                        ];
+                        const fixInfo = {
+                            "editColumn": range[0],
+                            "deleteCount": range[1],
+                            "insertText": `<${bareUrl}>`
+                        };
+                        addErrorContext(onError, lineIndex + 1, bareUrl, null, null, range, fixInfo);
                     }
                 }
             }
-        });
+        }
     }
 };
 

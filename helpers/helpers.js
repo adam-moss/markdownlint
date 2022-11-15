@@ -23,7 +23,8 @@ const htmlElementRe = /<(([A-Za-z][A-Za-z0-9-]*)(?:\s[^`>]*)?)\/?>/g;
 module.exports.htmlElementRe = htmlElementRe;
 
 // Regular expressions for range matching
-module.exports.bareUrlRe = /(?:http|ftp)s?:\/\/[^\s\]"']*(?:\/|[^\s\]"'\W])/ig;
+module.exports.bareUrlRe =
+  /(?:http|ftp)s?:\/\/[^\s\]"'<>]*(?:\/|[^\s\]"'\W])/ig;
 module.exports.listItemMarkerRe = /^([\s>]*)(?:[*+-]|\d+[.)])\s+/;
 module.exports.orderedListItemMarkerRe = /^[\s>]*0*(\d+)[.)]/;
 
