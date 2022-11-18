@@ -3736,13 +3736,16 @@ module.exports = {
                     const leftLeftChar = line[matchIndex - 2];
                     const leftChar = line[matchIndex - 1];
                     const rightChar = line[matchIndex + bareUrlLength];
+                    const rightRightChar = line[matchIndex + bareUrlLength + 1];
                     // Allow ](... to avoid reporting Markdown links
                     // Allow <...> to avoid reporting explicit links
                     // Allow [...] to avoid conflicts with MD011/no-reversed-links
                     // Allow "..." and '...' as a way of deliberately including a bare URL
                     if (!((leftLeftChar === "]") && (leftChar === "(")) &&
                         !((leftChar === "<") && (rightChar === ">")) &&
+                        !((leftChar === "<") && (rightChar === ")") && (rightRightChar === ">")) &&
                         !((leftChar === "[") && (rightChar === "]")) &&
+                        !((leftChar === "[") && (rightChar === ")") && (rightRightChar === "]")) &&
                         !((leftChar === "\"") && (rightChar === "\"")) &&
                         !((leftChar === "'") && (rightChar === "'")) &&
                         !withinAnyRange(lineExclusions, lineIndex, matchIndex, bareUrlLength) &&
