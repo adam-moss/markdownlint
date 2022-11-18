@@ -3706,7 +3706,7 @@ module.exports = {
 // @ts-check
 
 const { addErrorContext, bareUrlRe, withinAnyRange } = __webpack_require__(/*! ../helpers */ "../helpers/helpers.js");
-const { codeBlockAndSpanRanges, referenceLinkImageData } = __webpack_require__(/*! ./cache */ "../lib/cache.js");
+const { codeBlockAndSpanRanges, htmlElementRanges, referenceLinkImageData } = __webpack_require__(/*! ./cache */ "../lib/cache.js");
 const htmlLinkRe = /<a(?:|\s[^>]+)>[^<>]*<\/a\s*>/ig;
 module.exports = {
     "names": ["MD034", "no-bare-urls"],
@@ -3715,7 +3715,10 @@ module.exports = {
     "function": function MD034(params, onError) {
         const { lines } = params;
         const { definitionLineIndices } = referenceLinkImageData();
-        const codeExclusions = codeBlockAndSpanRanges();
+        const codeExclusions = [
+            ...codeBlockAndSpanRanges(),
+            ...htmlElementRanges()
+        ];
         for (const [lineIndex, line] of lines.entries()) {
             if (definitionLineIndices[0] === lineIndex) {
                 definitionLineIndices.shift();
